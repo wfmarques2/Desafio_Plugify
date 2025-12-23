@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react'
 import {
   Box,
   Paper,
@@ -12,65 +11,37 @@ import {
   TableSortLabel,
   Typography
 } from '@mui/material'
+import { useSearchParams } from 'react-router-dom'
 import { useProducts } from '../../hooks/useProducts'
 import { ProductTableRow } from './ProductTableRow'
-import type { Product } from '../../types/product'
 
 type Order = 'asc' | 'desc'
 type OrderBy = 'id' | 'name' | 'category' | 'price' | 'stock' | 'status'
 
 export const ProductTable = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { data, isLoading, isError } = useProducts()
 
-  const [order, setOrder] = useState<Order>('asc')
-  const [orderBy, setOrderBy] = useState<OrderBy>('id')
+  const orderBy = (searchParams.get('orderBy') || 'id') as OrderBy
+  const order = (searchParams.get('order') || 'asc') as Order
 
   const handleSort = (property: OrderBy) => () => {
+    const newParams = new URLSearchParams(searchParams)
+    
     if (orderBy === property) {
-      setOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+      // Alterna entre asc e desc na mesma coluna
+      newParams.set('order', order === 'asc' ? 'desc' : 'asc')
     } else {
-      setOrder('asc')
-      setOrderBy(property)
+      // Nova coluna, começa com asc
+      newParams.set('orderBy', property)
+      newParams.set('order', 'asc')
     }
+    
+    // Reseta para a página 1 quando ordenar
+    newParams.set('page', '1')
+    
+    setSearchParams(newParams)
   }
-
-  const sortedItems = useMemo(() => {
-    if (!data?.items) return []
-
-    const getValue = (product: Product): string | number => {
-      switch (orderBy) {
-        case 'id':
-          return product.id
-        case 'name':
-          return product.name
-        case 'category':
-          return product.category
-        case 'price':
-          return product.price
-        case 'stock':
-          return product.stock
-        case 'status':
-          return product.status
-        default:
-          return product.id
-      }
-    }
-
-    return [...data.items].sort((a, b) => {
-      const valueA = getValue(a)
-      const valueB = getValue(b)
-
-      let comparison = 0
-
-      if (typeof valueA === 'string' && typeof valueB === 'string') {
-        comparison = valueA.localeCompare(valueB, 'pt-BR', { sensitivity: 'base' })
-      } else {
-        comparison = Number(valueA) - Number(valueB)
-      }
-
-      return order === 'asc' ? comparison : -comparison
-    })
-  }, [data?.items, order, orderBy])
 
   return (
     <TableContainer component={Paper} elevation={1}>
@@ -174,7 +145,7 @@ export const ProductTable = () => {
 
           {!isLoading &&
             !isError &&
-            sortedItems.map((product) => (
+            data?.items.map((product) => (
               <ProductTableRow key={product.id} product={product} />
             ))}
         </TableBody>

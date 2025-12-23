@@ -506,10 +506,15 @@ export const productsMock: Product[] = [
   }
 ]
 
+type OrderBy = 'id' | 'name' | 'category' | 'price' | 'stock' | 'status'
+type Order = 'asc' | 'desc'
+
 export const fetchProducts = async (
   page: number = 1,
   size: number = 10,
-  search: string = ''
+  search: string = '',
+  orderBy: OrderBy = 'id',
+  order: Order = 'asc'
 ): Promise<PaginatedResponse<Product>> => {
   const normalizedSearch = search.trim().toLowerCase()
 
@@ -525,14 +530,50 @@ export const fetchProducts = async (
     })
   }
 
-  const total = filtered.length
+  // Função auxiliar para obter o valor de ordenação
+  const getSortValue = (product: Product): string | number => {
+    switch (orderBy) {
+      case 'id':
+        return product.id
+      case 'name':
+        return product.name
+      case 'category':
+        return product.category
+      case 'price':
+        return product.price
+      case 'stock':
+        return product.stock
+      case 'status':
+        return product.status
+      default:
+        return product.id
+    }
+  }
+
+  // Ordena TODOS os produtos filtrados antes de paginar
+  const sorted = [...filtered].sort((a, b) => {
+    const valueA = getSortValue(a)
+    const valueB = getSortValue(b)
+
+    let comparison = 0
+
+    if (typeof valueA === 'string' && typeof valueB === 'string') {
+      comparison = valueA.localeCompare(valueB, 'pt-BR', { sensitivity: 'base' })
+    } else {
+      comparison = Number(valueA) - Number(valueB)
+    }
+
+    return order === 'asc' ? comparison : -comparison
+  })
+
+  const total = sorted.length
   const pages = Math.max(1, Math.ceil(total / size))
   const currentPage = Math.min(Math.max(page, 1), pages)
 
   const startIndex = (currentPage - 1) * size
   const endIndex = startIndex + size
 
-  const items = filtered.slice(startIndex, endIndex)
+  const items = sorted.slice(startIndex, endIndex)
 
   // Simula atraso de rede
   await new Promise((resolve) => setTimeout(resolve, 400))
